@@ -8,6 +8,7 @@
 #include <time.h>
 
 #define MAX_LINE_LEN 100 // Assume no file line will ever be longer than 100 chars
+#define MAX_THREADS 4
 
 typedef struct data_point {
 	float d;
@@ -19,10 +20,16 @@ typedef struct line {
 	float slope;
 } line;
 
+char* input_file;
 int num_data_points;
 data_point *data_set;
 
-void load_file_into_memory(char* input_file){
+pthread_t threads[MAX_THREADS];
+int thread_numbers[MAX_THREADS];
+float min_sums[MAX_THREADS];
+line best_lines[MAX_THREADS];
+
+void load_file_into_memory(){
 	// malloc an in-memory dataset for the number of data points passed as arg to main
 	data_set = malloc(num_data_points * sizeof(data_point));
 	FILE *file = fopen(input_file, "r");
@@ -75,17 +82,62 @@ float compute_sum(data_point pt1, data_point pt2){
 	return total_distance_from_line;
 }
 
+void* l1_worker(void* param){
+	int* temp = param;
+    int thread = *temp;
 
-int main(int argc, char *argv[]) { 
-	if(argc < 3){
-		puts("Must provide input file AND number of data points in input_file!");
-		return 1;
+	float min_sum = compute_sum(data_set[0], data_set[1]);
+	line best_line = compute_line(data_set[0], data_set[1]);
+	for(int pt1 = thread; pt1 < num_data_points; pt1+=4){
+		for(int pt2 = pt1 + 1; pt2 < num_data_points; pt2++){
+			float sum = compute_sum(data_set[pt1], data_set[pt2]);
+			if(sum < min_sum){
+				min_sum = sum;
+				best_line = compute_line(data_set[pt1], data_set[pt2]);
+			}
+		}
 	}
-	num_data_points = atoi(argv[2]);
-	load_file_into_memory(argv[1]);
+	min_sums[thread] = min_sum;
+	best_lines[thread] = best_line;
+	return NULL;
+}
 
-	// Time the execution
-	clock_t begin = clock();
+// How many threads to use: https://askubuntu.com/questions/668538/cores-vs-threads-how-many-threads-should-i-run-on-this-machine
+// Linux Machine: 4 sockets x 1 cores/socket x 1 threads/core = 4 threads
+// Macbook:
+void multi_threaded_l1(){
+	int i;
+
+	for(i = 0; i < MAX_THREADS; i++){
+        thread_numbers[i] = i;
+    }
+
+    clock_t begin = clock(); // Time the execution
+    for(i = 0; i < MAX_THREADS; i++){
+        pthread_create(&threads[i], NULL, l1_worker, &thread_numbers[i]);
+    }
+
+    for(i = 0; i < MAX_THREADS; i++){
+        pthread_join(threads[i], NULL);
+    }
+
+    float min_sum = min_sums[0];
+    line best_line = best_lines[0];
+    for(i = 1; i < MAX_THREADS; i++){
+    	if(min_sums[i] < min_sum){
+    		min_sum = min_sums[i];
+    		best_line = best_lines[i];
+    	}
+    }
+
+	clock_t end = clock(); // Time the execution
+	printf("input file is:\t\t\t\t%s\nnumber of data points is:\t\t%d\n", input_file, num_data_points);
+	printf("SAR of the best L1 line is:\t\t%f\ny-intercept of the best L1 line is:\t%f\nslope of the best L1 line is:\t\t%f\n", min_sum, best_line.y_int, best_line.slope);
+	printf("time spent finding L1 best line was:\t%f\n", ((double)(end - begin) / CLOCKS_PER_SEC));
+}
+
+void single_threaded_l1(){
+	clock_t begin = clock(); // Time the execution
 
 	float min_sum = compute_sum(data_set[0], data_set[1]);
 	line best_line = compute_line(data_set[0], data_set[1]);
@@ -98,12 +150,30 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
-
-	// Time the execution
-	clock_t end = clock();
-	printf("input file is:\t\t\t\t%s\nnumber of data points is:\t\t%d\n", argv[1], num_data_points);
+	clock_t end = clock(); // Time the execution
+	printf("input file is:\t\t\t\t%s\nnumber of data points is:\t\t%d\n", input_file, num_data_points);
 	printf("SAR of the best L1 line is:\t\t%f\ny-intercept of the best L1 line is:\t%f\nslope of the best L1 line is:\t\t%f\n", min_sum, best_line.y_int, best_line.slope);
 	printf("time spent finding L1 best line was:\t%f\n", ((double)(end - begin) / CLOCKS_PER_SEC));
+}
+
+
+int main(int argc, char *argv[]) { 
+	if(argc < 3){
+		puts("Must provide input file AND number of data points in input_file!");
+		return 1;
+	}
+	num_data_points = atoi(argv[2]);
+	input_file = argv[1];
+	load_file_into_memory();
+
+	printf("MULTI THREADED IMPLEMENTATION RESULTS:\n");
+	multi_threaded_l1();
+	printf("END OF MULTI THREADED IMPLEMENTATION\n");
+
+
+	printf("SINGLE THREADED IMPLEMENTATION RESULTS:\n");
+	single_threaded_l1();
+	printf("END OF SINGLE THREADED IMPLEMENTATION\n");
 	
 	free(data_set);
 	return 0;
