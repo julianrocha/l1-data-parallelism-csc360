@@ -9,6 +9,8 @@
 
 #define MAX_LINE_LEN 100 // Assume no file line will ever be longer than 100 chars
 #define MAX_THREADS 4
+// How many threads to use: https://askubuntu.com/questions/668538/cores-vs-threads-how-many-threads-should-i-run-on-this-machine
+// Linux Machine: 4 sockets x 1 cores/socket x 1 threads/core = 4 threads
 
 typedef struct data_point {
 	float d;
@@ -88,7 +90,7 @@ void* l1_worker(void* param){
 
 	float min_sum = compute_sum(data_set[0], data_set[1]);
 	line best_line = compute_line(data_set[0], data_set[1]);
-	for(int pt1 = thread; pt1 < num_data_points; pt1+=4){
+	for(int pt1 = thread; pt1 < num_data_points; pt1+=MAX_THREADS){
 		for(int pt2 = pt1 + 1; pt2 < num_data_points; pt2++){
 			float sum = compute_sum(data_set[pt1], data_set[pt2]);
 			if(sum < min_sum){
@@ -102,9 +104,6 @@ void* l1_worker(void* param){
 	return NULL;
 }
 
-// How many threads to use: https://askubuntu.com/questions/668538/cores-vs-threads-how-many-threads-should-i-run-on-this-machine
-// Linux Machine: 4 sockets x 1 cores/socket x 1 threads/core = 4 threads
-// Macbook:
 void multi_threaded_l1(){
 	int i;
 
@@ -112,7 +111,7 @@ void multi_threaded_l1(){
         thread_numbers[i] = i;
     }
 
-    clock_t begin = clock(); // Time the execution
+    time_t begin = time(NULL); // Time the execution
     for(i = 0; i < MAX_THREADS; i++){
         pthread_create(&threads[i], NULL, l1_worker, &thread_numbers[i]);
     }
@@ -130,14 +129,15 @@ void multi_threaded_l1(){
     	}
     }
 
-	clock_t end = clock(); // Time the execution
+	time_t end = time(NULL); // Time the execution
 	printf("input file is:\t\t\t\t%s\nnumber of data points is:\t\t%d\n", input_file, num_data_points);
 	printf("SAR of the best L1 line is:\t\t%f\ny-intercept of the best L1 line is:\t%f\nslope of the best L1 line is:\t\t%f\n", min_sum, best_line.y_int, best_line.slope);
-	printf("time spent finding L1 best line was:\t%f\n", ((double)(end - begin) / CLOCKS_PER_SEC));
+	printf("seconds spent finding L1 best line was:\t%ld\n", (end - begin));
+	printf("number of threads used was:\t\t%d\n", MAX_THREADS);
 }
 
 void single_threaded_l1(){
-	clock_t begin = clock(); // Time the execution
+	time_t begin = time(NULL); // Time the execution
 
 	float min_sum = compute_sum(data_set[0], data_set[1]);
 	line best_line = compute_line(data_set[0], data_set[1]);
@@ -150,10 +150,11 @@ void single_threaded_l1(){
 			}
 		}
 	}
-	clock_t end = clock(); // Time the execution
+	time_t end = time(NULL); // Time the execution
 	printf("input file is:\t\t\t\t%s\nnumber of data points is:\t\t%d\n", input_file, num_data_points);
 	printf("SAR of the best L1 line is:\t\t%f\ny-intercept of the best L1 line is:\t%f\nslope of the best L1 line is:\t\t%f\n", min_sum, best_line.y_int, best_line.slope);
-	printf("time spent finding L1 best line was:\t%f\n", ((double)(end - begin) / CLOCKS_PER_SEC));
+	printf("seconds spent finding L1 best line was:\t%ld\n", (end - begin));
+	printf("number of threads used was:\t\t1\n");
 }
 
 
