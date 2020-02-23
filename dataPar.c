@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
-#include <time.h>
+#include <sys/time.h>
 
 #define MAX_LINE_LEN 100 // Assume no file line will ever be longer than 100 chars
 #define MAX_THREADS 4
@@ -111,7 +111,9 @@ void multi_threaded_l1(){
         thread_numbers[i] = i;
     }
 
-    time_t begin = time(NULL); // Time the execution
+    struct timeval start, end;
+	gettimeofday(&start, NULL);
+
     for(i = 0; i < MAX_THREADS; i++){
         pthread_create(&threads[i], NULL, l1_worker, &thread_numbers[i]);
     }
@@ -129,15 +131,19 @@ void multi_threaded_l1(){
     	}
     }
 
-	time_t end = time(NULL); // Time the execution
+	gettimeofday(&end, NULL);
+	long seconds = (end.tv_sec - start.tv_sec);
+	long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
+
 	printf("input file is:\t\t\t\t%s\nnumber of data points is:\t\t%d\n", input_file, num_data_points);
 	printf("SAR of the best L1 line is:\t\t%f\ny-intercept of the best L1 line is:\t%f\nslope of the best L1 line is:\t\t%f\n", min_sum, best_line.y_int, best_line.slope);
-	printf("seconds spent finding L1 best line was:\t%ld\n", (end - begin));
+	printf("time spent finding L1 best line was:\t%ld seconds OR %ld micro seconds\n", seconds, micros);
 	printf("number of threads used was:\t\t%d\n", MAX_THREADS);
 }
 
 void single_threaded_l1(){
-	time_t begin = time(NULL); // Time the execution
+	struct timeval start, end;
+	gettimeofday(&start, NULL);
 
 	float min_sum = compute_sum(data_set[0], data_set[1]);
 	line best_line = compute_line(data_set[0], data_set[1]);
@@ -150,32 +156,80 @@ void single_threaded_l1(){
 			}
 		}
 	}
-	time_t end = time(NULL); // Time the execution
+	gettimeofday(&end, NULL);
+	long seconds = (end.tv_sec - start.tv_sec);
+	long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
+
 	printf("input file is:\t\t\t\t%s\nnumber of data points is:\t\t%d\n", input_file, num_data_points);
 	printf("SAR of the best L1 line is:\t\t%f\ny-intercept of the best L1 line is:\t%f\nslope of the best L1 line is:\t\t%f\n", min_sum, best_line.y_int, best_line.slope);
-	printf("seconds spent finding L1 best line was:\t%ld\n", (end - begin));
+	printf("time spent finding L1 best line was:\t%ld seconds OR %ld micro seconds\n", seconds, micros);
 	printf("number of threads used was:\t\t1\n");
 }
 
 
-int main(int argc, char *argv[]) { 
-	if(argc < 3){
-		puts("Must provide input file AND number of data points in input_file!");
-		return 1;
-	}
-	num_data_points = atoi(argv[2]);
-	input_file = argv[1];
+int main() { 
+	// Resource used to time execution: https://www.techiedelight.com/find-execution-time-c-program/
+	input_file = "canadian_cpi_time_series.csv";
+	num_data_points = 6;
 	load_file_into_memory();
-
-	printf("MULTI THREADED IMPLEMENTATION RESULTS:\n");
+	printf("######\n");
+	printf("MULTI-THREADED IMPL RESULTS:\n");
 	multi_threaded_l1();
-	printf("END OF MULTI THREADED IMPLEMENTATION\n");
-
-
-	printf("SINGLE THREADED IMPLEMENTATION RESULTS:\n");
+	printf("END OF MULTI-THREADED IMPL\n");
+	printf("SINGLE-THREADED IMPL RESULTS:\n");
 	single_threaded_l1();
-	printf("END OF SINGLE THREADED IMPLEMENTATION\n");
-	
+	printf("END OF SINGLE-THREADED IMPL\n");
+	printf("######\n");
 	free(data_set);
+
+	num_data_points = 10;
+	load_file_into_memory();
+	printf("######\n");
+	printf("MULTI-THREADED IMPL RESULTS:\n");
+	multi_threaded_l1();
+	printf("END OF MULTI-THREADED IMPL\n");
+	printf("SINGLE-THREADED IMPL RESULTS:\n");
+	single_threaded_l1();
+	printf("END OF SINGLE-THREADED IMPL\n");
+	printf("######\n");
+	free(data_set);
+
+	num_data_points = 14;
+	load_file_into_memory();
+	printf("######\n");
+	printf("MULTI-THREADED IMPL RESULTS:\n");
+	multi_threaded_l1();
+	printf("END OF MULTI-THREADED IMPL\n");
+	printf("SINGLE-THREADED IMPL RESULTS:\n");
+	single_threaded_l1();
+	printf("END OF SINGLE-THREADED IMPL\n");
+	printf("######\n");
+	free(data_set);
+
+	num_data_points = 18;
+	load_file_into_memory();
+	printf("######\n");
+	printf("MULTI-THREADED IMPL RESULTS:\n");
+	multi_threaded_l1();
+	printf("END OF MULTI-THREADED IMPL\n");
+	printf("SINGLE-THREADED IMPL RESULTS:\n");
+	single_threaded_l1();
+	printf("END OF SINGLE-THREADED IMPL\n");
+	printf("######\n");
+	free(data_set);
+
+	input_file = "stremflow_time_series.csv";
+	num_data_points = 3652;
+	load_file_into_memory();
+	printf("######\n");
+	printf("MULTI-THREADED IMPL RESULTS:\n");
+	multi_threaded_l1();
+	printf("END OF MULTI-THREADED IMPL\n");
+	printf("SINGLE-THREADED IMPL RESULTS:\n");
+	single_threaded_l1();
+	printf("END OF SINGLE-THREADED IMPL\n");
+	printf("######\n");
+	free(data_set);
+
 	return 0;
 }
